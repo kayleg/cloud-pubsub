@@ -1,13 +1,13 @@
 # cloud-pubsub
 
 Provides methods to consume messages from Google PubSub using
-[Futures][https://github.com/rust-lang-nursery/futures-rs]
-and [Hyper][https://hyper.rs].
+[Futures](https://github.com/rust-lang-nursery/futures-rs)
+and [Hyper](https://hyper.rs).
 
 
 ## Authentication
 
-Authentication is provided by [rust-goauth][https://github.com/durch/rust-goauth].
+Authentication is provided by [rust-goauth](https://github.com/durch/rust-goauth).
 The `BaseClient` expects to receipt the path to the file containing your Google Cloud
 service account JSON key.
 
@@ -30,7 +30,7 @@ tokio::run(lazy(move || {
 
 ### Env Config
 
-[Envy][https://github.com/softprops/envy] is an excellent way to load your config.
+[Envy](https://github.com/softprops/envy) is an excellent way to load your config.
 
 ```
 #[derive(Deserialize)]
