@@ -8,7 +8,7 @@ and [Hyper](https://hyper.rs).
 ## Authentication
 
 Authentication is provided by [rust-goauth](https://github.com/durch/rust-goauth).
-The `BaseClient` expects to receipt the path to the file containing your Google Cloud
+The `BaseClient` expects to receive the path to the file containing your Google Cloud
 service account JSON key.
 
 ### Token Renewal
