@@ -1,0 +1,26 @@
+[package]
+name = "cloud-pubsub"
+version = "0.1.0"
+authors = ["Kayle Gishen <k@bkdsw.com>"]
+edition = "2018"
+description = "Google Cloud PubSub Client"
+homepage = "https://github.com/kayleg/cloud-pubsub"
+repository = "https://github.com/kayleg/cloud-pubsub"
+keywords = ["google", "pubsub"]
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+bytes = "0.4"
+hyper = "0.12"
+hyper-tls = "0.3.1"
+tokio = "0.1.15"
+futures = "0.1"
+goauth = { git = "https://github.com/durch/rust-goauth.git", branch = "master" }
+smpl_jwt = "0.4.0"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+base64 = "0.10.1"
+lazy_static = "1.2.0"
+envy = "0.4"
