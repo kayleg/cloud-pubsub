@@ -16,7 +16,7 @@ hyper = "0.12"
 hyper-tls = "0.3.1"
 tokio = "0.1.15"
 futures = "0.1"
-goauth = { git = "https://github.com/durch/rust-goauth.git", branch = "master" }
+goauth = "0.5.0-beta"
 smpl_jwt = "0.4.0"
 serde = "1.0"
 serde_derive = "1.0"
