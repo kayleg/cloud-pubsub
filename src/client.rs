@@ -11,6 +11,7 @@ use tokio::timer::Interval;
 pub struct State {
     token: Option<goauth::auth::Token>,
     credentials_path: String,
+    project: Option<String>,
 }
 
 impl State {
@@ -21,20 +22,24 @@ impl State {
     pub fn access_token(&self) -> &str {
         self.token.as_ref().unwrap().access_token()
     }
+
+    pub fn project(&self) -> &str {
+        &(self.project.as_ref().expect("Google Cloud Project has not been set. If it is not in your credential file, call set_project to set it manually."))
+    }
 }
 
 pub trait Client
 where
-    Self: std::marker::Sized + TokenAuthenticated,
+    Self: std::marker::Sized,
 {
     fn create(credentials_path: String) -> Result<Self, error::Error>;
     fn subscribe(&self, name: String) -> Subscription;
-}
+    fn set_project(&mut self, project: String);
+    fn project(&self) -> String;
 
-pub trait TokenAuthenticated {
     fn spawn_token_renew(&self);
     fn refresh_token(&mut self) -> Result<(), error::Error>;
-    fn get_token(&self) -> Result<goauth::auth::Token, goauth::error::GOErr>;
+    fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::error::GOErr>;
 }
 
 pub type BaseClient = Arc<RwLock<State>>;
@@ -43,6 +48,7 @@ impl Client for BaseClient {
     fn subscribe(&self, name: String) -> Subscription {
         Subscription {
             client: self.clone(),
+            canonical_name: format!("projects/{}/subscriptions/{}", self.project(), name),
             name,
         }
     }
@@ -51,6 +57,7 @@ impl Client for BaseClient {
         let mut client = Arc::new(RwLock::new(State {
             token: None,
             credentials_path,
+            project: None,
         }));
 
         match client.refresh_token() {
@@ -58,9 +65,15 @@ impl Client for BaseClient {
             Err(e) => Err(e),
         }
     }
-}
 
-impl TokenAuthenticated for BaseClient {
+    fn set_project(&mut self, project: String) {
+        self.write().unwrap().project = Some(project);
+    }
+
+    fn project(&self) -> String {
+        self.read().unwrap().project().to_string()
+    }
+
     fn spawn_token_renew(&self) {
         let mut client = self.clone();
         let renew_token_task = Interval::new(Instant::now(), Duration::from_secs(15 * 60))
@@ -86,10 +99,12 @@ impl TokenAuthenticated for BaseClient {
         }
     }
 
-    fn get_token(&self) -> Result<goauth::auth::Token, goauth::error::GOErr> {
+    fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::error::GOErr> {
         let credentials =
             goauth::credentials::Credentials::from_file(&self.read().unwrap().credentials_path)
                 .unwrap();
+
+        self.set_project(credentials.project());
 
         let claims = JwtClaims::new(
             credentials.iss(),

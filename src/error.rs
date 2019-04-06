@@ -1,10 +1,22 @@
+use serde_derive::Deserialize;
 use std::fmt;
 
+#[derive(Deserialize)]
+#[serde(untagged)]
 pub enum Error {
+    #[serde(skip_deserializing)]
     PubSubAuth(goauth::error::GOErr),
+    #[serde(skip_deserializing)]
     Http(hyper::Error),
+    #[serde(skip_deserializing)]
     Json(serde_json::Error),
+    #[serde(skip_deserializing)]
     Base64(base64::DecodeError),
+    PubSub {
+        code: i32,
+        message: String,
+        status: String,
+    },
 }
 
 impl fmt::Display for Error {
@@ -14,6 +26,15 @@ impl fmt::Display for Error {
             Error::Http(e) => write!(f, "Hyper({})", e),
             Error::Json(e) => write!(f, "Json({})", e),
             Error::Base64(e) => write!(f, "Base64({})", e),
+            Error::PubSub {
+                code,
+                message,
+                status,
+            } => write!(
+                f,
+                "PubSub(code: {}, status: {}, message: {})",
+                code, status, message
+            ),
         }
     }
 }

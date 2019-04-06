@@ -11,6 +11,7 @@ use std::sync::{Arc, RwLock};
 struct Response {
     #[serde(alias = "receivedMessages")]
     received_messages: Option<Vec<Message>>,
+    error: Option<error::Error>,
 }
 
 #[derive(Serialize)]
@@ -22,6 +23,7 @@ struct AckRequest {
 pub struct Subscription {
     pub(crate) client: Arc<RwLock<State>>,
     pub name: String,
+    pub(crate) canonical_name: String,
 }
 
 impl Subscription {
@@ -29,9 +31,12 @@ impl Subscription {
         let https = HttpsConnector::new(4).unwrap();
         let client = hyper::Client::builder().build::<_, hyper::Body>(https);
 
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:acknowledge", self.name)
-            .parse()
-            .unwrap();
+        let uri: hyper::Uri = format!(
+            "https://pubsub.googleapis.com/v1/{}:acknowledge",
+            self.canonical_name
+        )
+        .parse()
+        .unwrap();
 
         let json = serde_json::to_string(&AckRequest { ack_ids: ids }).unwrap();
 
@@ -66,9 +71,12 @@ impl Subscription {
         let https = HttpsConnector::new(4).unwrap();
         let client = hyper::Client::builder().build::<_, hyper::Body>(https);
 
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:pull", self.name)
-            .parse()
-            .unwrap();
+        let uri: hyper::Uri = format!(
+            "https://pubsub.googleapis.com/v1/{}:pull",
+            self.canonical_name
+        )
+        .parse()
+        .unwrap();
 
         let json = r#"{"maxMessages": 100}"#;
 
@@ -96,6 +104,9 @@ impl Subscription {
             .from_err::<error::Error>()
             .and_then(|body| {
                 let response: Response = serde_json::from_slice(&body)?;
+                if let Some(e) = response.error {
+                    return Err(e);
+                }
                 let messages = response.received_messages.unwrap_or_default();
                 let ack_ids: Vec<String> = messages
                     .as_slice()

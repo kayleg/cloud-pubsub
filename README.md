@@ -57,10 +57,10 @@ fn main() {
 
 ## Subscribing
 
-The full canonical subscription name should be used when subscribing:
+### Connecting to existing subscription
 
 ```
-let sub = my_client.subscribe("projects/{google-project-id}/subscriptions/{subscription-name}")
+let sub = my_client.subscribe("subscription-name")
 ```
 
 Currently a subscription needs to be created using the gcloud CLI or the web interface. There are
