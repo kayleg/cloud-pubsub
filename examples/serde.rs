@@ -1,5 +1,5 @@
 use cloud_pubsub::error;
-use cloud_pubsub::{BaseClient, Client, EncodedMessage, FromPubSubMessage};
+use cloud_pubsub::{Client, EncodedMessage, FromPubSubMessage};
 use futures::future::lazy;
 use serde_derive::Deserialize;
 use std::sync::Arc;
@@ -34,7 +34,7 @@ fn main() {
     }
     let config = parsed_env.unwrap();
 
-    let pubsub = match BaseClient::create(config.google_application_credentials) {
+    let pubsub = match Client::new(config.google_application_credentials) {
         Err(e) => panic!("Failed to initialize pubsub: {}", e),
         Ok(p) => p,
     };
@@ -53,6 +53,7 @@ fn main() {
                 if !acks.is_empty() {
                     tokio::spawn(order_sub.acknowledge_messages(acks));
                 }
+                drop(pubsub);
             })
             .map_err(|e| println!("Error Checking PubSub: {}", e))
     }));

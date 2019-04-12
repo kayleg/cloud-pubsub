@@ -1,17 +1,23 @@
 use crate::error;
 use crate::subscription::Subscription;
+use crate::topic::Topic;
 use futures::prelude::*;
 use goauth::auth::JwtClaims;
 use goauth::scopes::Scope;
+use hyper::client::HttpConnector;
+use hyper_tls::HttpsConnector;
 use smpl_jwt::Jwt;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tokio::timer::Interval;
 
+type HyperClient = Arc<hyper::Client<HttpsConnector<HttpConnector>, hyper::Body>>;
+
 pub struct State {
     token: Option<goauth::auth::Token>,
     credentials_path: String,
     project: Option<String>,
+    hyper_client: HyperClient,
 }
 
 impl State {
@@ -28,37 +34,22 @@ impl State {
     }
 }
 
-pub trait Client
-where
-    Self: std::marker::Sized,
-{
-    fn create(credentials_path: String) -> Result<Self, error::Error>;
-    fn subscribe(&self, name: String) -> Subscription;
-    fn set_project(&mut self, project: String);
-    fn project(&self) -> String;
+pub struct Client(Arc<RwLock<State>>);
 
-    fn spawn_token_renew(&self);
-    fn refresh_token(&mut self) -> Result<(), error::Error>;
-    fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::error::GOErr>;
+impl Clone for Client {
+    fn clone(&self) -> Self {
+        Client(self.0.clone())
+    }
 }
 
-pub type BaseClient = Arc<RwLock<State>>;
-
-impl Client for BaseClient {
-    fn subscribe(&self, name: String) -> Subscription {
-        Subscription {
-            client: self.clone(),
-            canonical_name: format!("projects/{}/subscriptions/{}", self.project(), name),
-            name,
-        }
-    }
-
-    fn create(credentials_path: String) -> Result<Self, error::Error> {
-        let mut client = Arc::new(RwLock::new(State {
+impl Client {
+    pub fn new(credentials_path: String) -> Result<Self, error::Error> {
+        let mut client = Client(Arc::new(RwLock::new(State {
             token: None,
             credentials_path,
             project: None,
-        }));
+            hyper_client: setup_hyper(),
+        })));
 
         match client.refresh_token() {
             Ok(_) => Ok(client),
@@ -66,15 +57,30 @@ impl Client for BaseClient {
         }
     }
 
-    fn set_project(&mut self, project: String) {
-        self.write().unwrap().project = Some(project);
+    pub fn subscribe(&self, name: String) -> Subscription {
+        Subscription {
+            client: Some(self.clone()),
+            name: format!("projects/{}/subscriptions/{}", self.project(), name),
+            topic: None,
+        }
     }
 
-    fn project(&self) -> String {
-        self.read().unwrap().project().to_string()
+    pub fn set_project(&mut self, project: String) {
+        self.0.write().unwrap().project = Some(project);
     }
 
-    fn spawn_token_renew(&self) {
+    pub fn project(&self) -> String {
+        self.0.read().unwrap().project().to_string()
+    }
+
+    pub fn topic(&self, name: String) -> Topic {
+        Topic {
+            client: Some(Client(self.0.clone())),
+            name: format!("projects/{}/topics/{}", self.project(), name),
+        }
+    }
+
+    pub fn spawn_token_renew(&self) {
         let mut client = self.clone();
         let renew_token_task = Interval::new(Instant::now(), Duration::from_secs(15 * 60))
             .for_each(move |_instant| {
@@ -89,10 +95,10 @@ impl Client for BaseClient {
         tokio::spawn(renew_token_task);
     }
 
-    fn refresh_token(&mut self) -> Result<(), error::Error> {
+    pub fn refresh_token(&mut self) -> Result<(), error::Error> {
         match self.get_token() {
             Ok(token) => {
-                self.write().unwrap().token = Some(token);
+                self.0.write().unwrap().token = Some(token);
                 Ok(())
             }
             Err(e) => Err(error::Error::from(e)),
@@ -101,7 +107,7 @@ impl Client for BaseClient {
 
     fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::error::GOErr> {
         let credentials =
-            goauth::credentials::Credentials::from_file(&self.read().unwrap().credentials_path)
+            goauth::credentials::Credentials::from_file(&self.0.read().unwrap().credentials_path)
                 .unwrap();
 
         self.set_project(credentials.project());
@@ -116,4 +122,41 @@ impl Client for BaseClient {
         let jwt = Jwt::new(claims, credentials.rsa_key().unwrap(), None);
         goauth::get_token_with_creds(&jwt, &credentials)
     }
+
+    pub(crate) fn request<T: Into<hyper::Body>>(
+        &self,
+        method: hyper::Method,
+        data: T,
+    ) -> hyper::Request<hyper::Body>
+    where
+        hyper::Body: std::convert::From<T>,
+    {
+        let mut req = hyper::Request::new(hyper::Body::from(data));
+        *req.method_mut() = method;
+        req.headers_mut().insert(
+            hyper::header::CONTENT_TYPE,
+            hyper::header::HeaderValue::from_static("application/json"),
+        );
+        let readable = self.0.read().unwrap();
+        req.headers_mut().insert(
+            hyper::header::AUTHORIZATION,
+            hyper::header::HeaderValue::from_str(&format!(
+                "{} {}",
+                readable.token_type(),
+                readable.access_token()
+            ))
+            .unwrap(),
+        );
+        req
+    }
+
+    pub fn hyper_client(&self) -> HyperClient {
+        self.0.read().unwrap().hyper_client.clone()
+    }
+}
+
+fn setup_hyper() -> HyperClient {
+    // 4 is number of blocking DNS threads
+    let https = HttpsConnector::new(4).unwrap();
+    Arc::new(hyper::Client::builder().build::<_, hyper::Body>(https))
 }

@@ -1,11 +1,9 @@
-use crate::client::State;
+use crate::client::Client;
 use crate::error;
 use crate::message::{FromPubSubMessage, Message};
 use futures::prelude::*;
-use hyper::{header::HeaderValue, Body, Method, Request};
-use hyper_tls::HttpsConnector;
+use hyper::Method;
 use serde_derive::{Deserialize, Serialize};
-use std::sync::{Arc, RwLock};
 
 #[derive(Deserialize)]
 struct Response {
@@ -20,45 +18,34 @@ struct AckRequest {
     ack_ids: Vec<String>,
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct Subscription {
-    pub(crate) client: Arc<RwLock<State>>,
+    #[serde(skip_serializing)]
     pub name: String,
-    pub(crate) canonical_name: String,
+    pub topic: Option<String>,
+
+    #[serde(skip)]
+    pub(crate) client: Option<Client>,
 }
 
 impl Subscription {
     pub fn acknowledge_messages(&self, ids: Vec<String>) -> impl Future<Item = (), Error = ()> {
-        let https = HttpsConnector::new(4).unwrap();
-        let client = hyper::Client::builder().build::<_, hyper::Body>(https);
+        let client = self
+            .client
+            .as_ref()
+            .expect("Subscription was not created using a client");
 
-        let uri: hyper::Uri = format!(
-            "https://pubsub.googleapis.com/v1/{}:acknowledge",
-            self.canonical_name
-        )
-        .parse()
-        .unwrap();
+        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:acknowledge", self.name)
+            .parse()
+            .unwrap();
 
         let json = serde_json::to_string(&AckRequest { ack_ids: ids }).unwrap();
 
-        let mut req = Request::new(Body::from(json));
-        *req.method_mut() = Method::POST;
+        let mut req = client.request(Method::POST, json);
         *req.uri_mut() = uri.clone();
-        req.headers_mut().insert(
-            hyper::header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        );
-        let readable = self.client.read().unwrap();
-        req.headers_mut().insert(
-            hyper::header::AUTHORIZATION,
-            HeaderValue::from_str(&format!(
-                "{} {}",
-                readable.token_type(),
-                readable.access_token()
-            ))
-            .unwrap(),
-        );
 
         client
+            .hyper_client()
             .request(req)
             .and_then(|_response| Ok(()))
             .map_err(|e| eprintln!("Failed ACk: {}", e))
@@ -67,38 +54,22 @@ impl Subscription {
     pub fn get_messages<T: FromPubSubMessage>(
         &self,
     ) -> impl Future<Item = (Vec<T>, Vec<String>), Error = error::Error> {
-        // 4 is number of blocking DNS threads
-        let https = HttpsConnector::new(4).unwrap();
-        let client = hyper::Client::builder().build::<_, hyper::Body>(https);
+        let client = self
+            .client
+            .as_ref()
+            .expect("Subscription was not created using a client");
 
-        let uri: hyper::Uri = format!(
-            "https://pubsub.googleapis.com/v1/{}:pull",
-            self.canonical_name
-        )
-        .parse()
-        .unwrap();
+        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:pull", self.name)
+            .parse()
+            .unwrap();
 
         let json = r#"{"maxMessages": 100}"#;
 
-        let mut req = Request::new(Body::from(json));
-        *req.method_mut() = Method::POST;
+        let mut req = client.request(Method::POST, json);
         *req.uri_mut() = uri.clone();
-        req.headers_mut().insert(
-            hyper::header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        );
-        let readable = self.client.read().unwrap();
-        req.headers_mut().insert(
-            hyper::header::AUTHORIZATION,
-            HeaderValue::from_str(&format!(
-                "{} {}",
-                readable.token_type(),
-                readable.access_token()
-            ))
-            .unwrap(),
-        );
 
         client
+            .hyper_client()
             .request(req)
             .and_then(|res| res.into_body().concat2())
             .from_err::<error::Error>()
@@ -127,5 +98,24 @@ impl Subscription {
                 Ok((packets, ack_ids))
             })
             .from_err()
+    }
+
+    pub fn destroy(self) -> impl Future<Item = (), Error = error::Error> {
+        let client = self
+            .client
+            .expect("Subscription was not created using a client");
+
+        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}", self.name)
+            .parse()
+            .unwrap();
+
+        let mut req = client.request(Method::DELETE, "");
+        *req.uri_mut() = uri.clone();
+
+        client
+            .hyper_client()
+            .request(req)
+            .and_then(|_res| Ok(()))
+            .from_err::<error::Error>()
     }
 }
