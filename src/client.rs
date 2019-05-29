@@ -1,12 +1,14 @@
 use crate::error;
 use crate::subscription::Subscription;
 use crate::topic::Topic;
+use futures::future;
 use futures::prelude::*;
 use goauth::auth::JwtClaims;
 use goauth::scopes::Scope;
 use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
 use smpl_jwt::Jwt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tokio::timer::Interval;
@@ -18,6 +20,7 @@ pub struct State {
     credentials_path: String,
     project: Option<String>,
     hyper_client: HyperClient,
+    running: Arc<AtomicBool>,
 }
 
 impl State {
@@ -49,6 +52,7 @@ impl Client {
             credentials_path,
             project: None,
             hyper_client: setup_hyper(),
+            running: Arc::new(AtomicBool::new(true)),
         })));
 
         match client.refresh_token() {
@@ -80,9 +84,23 @@ impl Client {
         }
     }
 
-    pub fn spawn_token_renew(&self) {
+    pub fn is_running(&self) -> bool {
+        self.0.read().unwrap().running.load(Ordering::SeqCst)
+    }
+
+    pub fn stop(&self) {
+        self.0
+            .write()
+            .unwrap()
+            .running
+            .store(false, Ordering::SeqCst)
+    }
+
+    pub fn spawn_token_renew(&self, interval: Duration) {
         let mut client = self.clone();
-        let renew_token_task = Interval::new(Instant::now(), Duration::from_secs(15 * 60))
+        let c = self.clone();
+        let renew_token_task = Interval::new(Instant::now(), interval)
+            .take_while(move |_| future::ok(c.is_running()))
             .for_each(move |_instant| {
                 println!("Renewing pubsub token");
                 if let Err(e) = client.refresh_token() {

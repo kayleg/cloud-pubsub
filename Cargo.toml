@@ -1,6 +1,6 @@
 [package]
 name = "cloud-pubsub"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Kayle Gishen <k@bkdsw.com>"]
 edition = "2018"
 description = "Google Cloud PubSub Client"
@@ -25,3 +25,4 @@ base64 = "0.10.1"
 lazy_static = "1.2.0"
 envy = "0.4"
 rand = "0.6"
+ctrlc = { git = "https://github.com/kayleg/rust-ctrlc" }

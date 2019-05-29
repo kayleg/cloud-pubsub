@@ -118,4 +118,8 @@ impl Subscription {
             .and_then(|_res| Ok(()))
             .from_err::<error::Error>()
     }
+
+    pub fn client(&self) -> &Client {
+        self.client.as_ref().unwrap()
+    }
 }
