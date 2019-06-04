@@ -18,7 +18,7 @@ struct AckRequest {
     ack_ids: Vec<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Subscription {
     #[serde(skip_serializing)]
     pub name: String,
