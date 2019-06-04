@@ -1,7 +1,6 @@
 use crate::error;
 use base64;
-use serde::Serialize;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Deserialize, Clone, Serialize)]
 pub struct EncodedMessage {
