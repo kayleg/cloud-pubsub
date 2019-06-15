@@ -1,7 +1,7 @@
 use serde_derive::Deserialize;
 use std::fmt;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum Error {
     #[serde(skip_deserializing)]
