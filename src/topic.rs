@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::error;
 use crate::subscription::*;
 use crate::EncodedMessage;
-use futures::prelude::*;
+use bytes::buf::BufExt as _;
 use hyper::Method;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -29,7 +29,7 @@ pub struct PublishMessageRequest {
 }
 
 impl Topic {
-    pub fn subscribe(&self) -> impl Future<Item = Subscription, Error = error::Error> {
+    pub async fn subscribe(&self) -> Result<Subscription, error::Error> {
         let client = self.client.clone();
 
         let new_subscription = Subscription {
@@ -42,19 +42,18 @@ impl Topic {
             .parse()
             .unwrap();
 
-        let result =
-            self.perform_request::<Subscription, Subscription>(uri, Method::PUT, new_subscription);
+        let mut sub = self
+            .perform_request::<Subscription, Subscription>(uri, Method::PUT, new_subscription)
+            .await?;
 
-        result.and_then(move |mut sub| {
-            sub.client = client.clone();
-            Ok(sub)
-        })
+        sub.client = client.clone();
+        Ok(sub)
     }
 
-    pub fn publish<T: serde::Serialize>(
+    pub async fn publish<T: serde::Serialize>(
         &self,
         data: T,
-    ) -> impl Future<Item = PublishMessageResponse, Error = error::Error> {
+    ) -> Result<PublishMessageResponse, error::Error> {
         let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:publish", self.name)
             .parse()
             .unwrap();
@@ -69,14 +68,15 @@ impl Topic {
             Method::POST,
             payload,
         )
+        .await
     }
 
-    fn perform_request<T: serde::Serialize, U: DeserializeOwned + Clone>(
+    async fn perform_request<T: serde::Serialize, U: DeserializeOwned + Clone>(
         &self,
         uri: hyper::Uri,
         method: Method,
         data: T,
-    ) -> impl Future<Item = U, Error = error::Error> {
+    ) -> Result<U, error::Error> {
         let client = self
             .client
             .clone()
@@ -86,12 +86,9 @@ impl Topic {
         let mut req = client.request(method, json);
         *req.uri_mut() = uri;
 
-        client
-            .hyper_client()
-            .request(req)
-            .and_then(|res| res.into_body().concat2())
-            .from_err::<error::Error>()
-            .and_then(|body| serde_json::from_slice::<U>(&body).map_err(error::Error::Json))
+        let response = client.hyper_client().request(req).await?;
+        let body = hyper::body::aggregate(response).await?;
+        serde_json::from_reader(body.reader())?
     }
 
     fn new_subscription_name(&self) -> String {

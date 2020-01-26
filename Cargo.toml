@@ -1,30 +1,28 @@
 [package]
-name = "cloud-pubsub"
-version = "0.3.2"
-authors = ["Kayle Gishen <k@bkdsw.com>", "tehAnswer <sergiorodriguezgijon@gmail.com>"]
-edition = "2018"
-description = "Google Cloud PubSub Client"
-homepage = "https://github.com/kayleg/cloud-pubsub"
-repository = "https://github.com/kayleg/cloud-pubsub"
-keywords = ["google", "pubsub"]
-license = "MIT"
-readme = "README.md"
+name         =  "cloud-pubsub"
+version      =  "0.4.0"
+authors      =  ["Kayle Gishen <k@bkdsw.com>", "tehAnswer <sergiorodriguezgijon@gmail.com>"]
+edition      =  "2018"
+description  =  "Google Cloud PubSub Client"
+homepage     =  "https://github.com/kayleg/cloud-pubsub"
+repository   =  "https://github.com/kayleg/cloud-pubsub"
+keywords     =  ["google", "pubsub"]
+license      =  "MIT"
+readme       =  "README.md"
 
 [dependencies]
-bytes = "0.4"
-hyper = "0.12"
-hyper-tls = "0.3.1"
-tokio = "0.1.15"
-futures = "0.1"
-goauth = "0.5.0-beta"
-smpl_jwt = "0.4.0"
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-base64 = "0.10.1"
-lazy_static = "1.2.0"
-envy = "0.4"
-rand = "0.6"
-
-[dev-dependencies]
-ctrlc = { git = "https://github.com/kayleg/rust-ctrlc" }
+bytes         =  "0.5"
+hyper         =  "0.13"
+hyper-tls     =  "0.4.1"
+tokio         =  { version = "0.2", features=["full"] }
+futures-util = "0.3.1"
+#tokio-signal  =  "0.2.7"
+goauth        =  "0.6"
+smpl_jwt      =  "0.4.0"
+serde         =  "1.0"
+serde_derive  =  "1.0"
+serde_json    =  "1.0"
+base64        =  "0.11"
+lazy_static   =  "1.4.0"
+envy          =  "0.4"
+rand          =  "0.7"

@@ -1,9 +1,8 @@
 use cloud_pubsub::error;
 use cloud_pubsub::{Client, EncodedMessage, FromPubSubMessage};
-use futures::future::lazy;
 use serde_derive::Deserialize;
 use std::sync::Arc;
-use tokio::prelude::*;
+use tokio::task;
 
 #[derive(Deserialize)]
 struct Config {
@@ -22,8 +21,8 @@ impl FromPubSubMessage for UpdatePacket {
         }
     }
 }
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let parsed_env = envy::from_env::<Config>();
     if let Err(e) = parsed_env {
         eprintln!("ENV is not valid: {}", e);
@@ -37,22 +36,18 @@ fn main() {
     };
 
     let order_sub = Arc::new(pubsub.subscribe(config.pubsub_subscription));
+    match order_sub.clone().get_messages::<UpdatePacket>().await {
+        Ok((packets, acks)) => {
+            for packet in packets {
+                println!("Received: {:?}", packet);
+            }
 
-    tokio::run(lazy(move || {
-        order_sub
-            .clone()
-            .get_messages::<UpdatePacket>()
-            .map(move |(packets, acks)| {
-                for packet in packets {
-                    println!("Received: {:?}", packet);
-                }
-
-                if !acks.is_empty() {
-                    tokio::spawn(order_sub.acknowledge_messages(acks));
-                }
-
-                drop(pubsub);
-            })
-            .map_err(|e| println!("Error Checking PubSub: {}", e))
-    }));
+            if !acks.is_empty() {
+                task::spawn(async move { order_sub.acknowledge_messages(acks).await })
+                    .await // This will block until acknowledgement is complete
+                    .expect("Failed to acknoweldge messages");
+            }
+        }
+        Err(e) => println!("Error Checking PubSub: {}", e),
+    }
 }

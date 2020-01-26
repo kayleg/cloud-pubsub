@@ -1,5 +1,6 @@
 use serde_derive::Deserialize;
 use std::fmt;
+use std::io;
 
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
@@ -12,6 +13,8 @@ pub enum Error {
     Json(serde_json::Error),
     #[serde(skip_deserializing)]
     Base64(base64::DecodeError),
+    #[serde(skip_deserializing)]
+    IO(io::Error),
     PubSub {
         code: i32,
         message: String,
@@ -26,6 +29,7 @@ impl fmt::Display for Error {
             Error::Http(e) => write!(f, "Hyper({})", e),
             Error::Json(e) => write!(f, "Json({})", e),
             Error::Base64(e) => write!(f, "Base64({})", e),
+            Error::IO(e) => write!(f, "IO({})", e),
             Error::PubSub {
                 code,
                 message,
@@ -60,5 +64,11 @@ impl From<serde_json::Error> for Error {
 impl From<base64::DecodeError> for Error {
     fn from(err: base64::DecodeError) -> Error {
         Error::Base64(err)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::IO(err)
     }
 }

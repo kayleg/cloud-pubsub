@@ -1,8 +1,6 @@
 use crate::error;
 use crate::subscription::Subscription;
 use crate::topic::Topic;
-use futures::future;
-use futures::prelude::*;
 use goauth::auth::JwtClaims;
 use goauth::scopes::Scope;
 use hyper::client::HttpConnector;
@@ -10,8 +8,10 @@ use hyper_tls::HttpsConnector;
 use smpl_jwt::Jwt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
-use tokio::timer::Interval;
+use std::time::Duration;
+use tokio::stream::StreamExt;
+use tokio::task;
+use tokio::time;
 
 type HyperClient = Arc<hyper::Client<HttpsConnector<HttpConnector>, hyper::Body>>;
 
@@ -99,18 +99,21 @@ impl Client {
     pub fn spawn_token_renew(&self, interval: Duration) {
         let mut client = self.clone();
         let c = self.clone();
-        let renew_token_task = Interval::new(Instant::now(), interval)
-            .take_while(move |_| future::ok(c.is_running()))
-            .for_each(move |_instant| {
+        let renew_token_task = async move {
+            while time::interval(interval)
+                .take_while(|_| c.is_running())
+                .next()
+                .await
+                .is_some()
+            {
                 println!("Renewing pubsub token");
                 if let Err(e) = client.refresh_token() {
                     eprintln!("Failed to update token: {}", e);
                 }
-                Ok(())
-            })
-            .map_err(|e| eprintln!("token refresh interval errored; err={:?}", e));
+            }
+        };
 
-        tokio::spawn(renew_token_task);
+        task::spawn(renew_token_task);
     }
 
     pub fn refresh_token(&mut self) -> Result<(), error::Error> {
@@ -174,7 +177,6 @@ impl Client {
 }
 
 fn setup_hyper() -> HyperClient {
-    // 4 is number of blocking DNS threads
-    let https = HttpsConnector::new(4).unwrap();
+    let https = HttpsConnector::new();
     Arc::new(hyper::Client::builder().build::<_, hyper::Body>(https))
 }
