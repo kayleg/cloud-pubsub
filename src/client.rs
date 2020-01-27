@@ -9,7 +9,6 @@ use smpl_jwt::Jwt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tokio::stream::StreamExt;
 use tokio::task;
 use tokio::time;
 
@@ -100,15 +99,14 @@ impl Client {
         let mut client = self.clone();
         let c = self.clone();
         let renew_token_task = async move {
-            while time::interval(interval)
-                .take_while(|_| c.is_running())
-                .next()
-                .await
-                .is_some()
-            {
-                println!("Renewing pubsub token");
-                if let Err(e) = client.refresh_token() {
-                    eprintln!("Failed to update token: {}", e);
+            let mut int = time::interval(interval);
+            loop {
+                if c.is_running() {
+                    println!("Renewing pubsub token");
+                    if let Err(e) = client.refresh_token() {
+                        eprintln!("Failed to update token: {}", e);
+                    }
+                    int.tick().await;
                 }
             }
         };

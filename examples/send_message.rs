@@ -1,8 +1,6 @@
 use cloud_pubsub::Client;
-use futures::future::lazy;
 use serde_derive::Deserialize;
 use std::sync::Arc;
-use tokio::prelude::*;
 
 #[derive(Deserialize)]
 struct Config {
@@ -10,7 +8,8 @@ struct Config {
     google_application_credentials: String,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let parsed_env = envy::from_env::<Config>();
     if let Err(e) = parsed_env {
         eprintln!("ENV is not valid: {}", e);
@@ -24,15 +23,12 @@ fn main() {
     };
 
     let topic = Arc::new(pubsub.topic(config.topic.clone()));
-    tokio::run(lazy(move || {
-        topic
-            .clone()
-            .publish("🔥")
-            .map(move |response| {
-                println!("{:?}", response);
-                pubsub.stop();
-                std::process::exit(0);
-            })
-            .map_err(|e| eprintln!("Failed to send_message: {}", e))
-    }));
+    match topic.clone().publish("🔥").await {
+        Ok(response) => {
+            println!("{:?}", response);
+            pubsub.stop();
+            std::process::exit(0);
+        }
+        Err(e) => eprintln!("Failed sending message {}", e),
+    }
 }

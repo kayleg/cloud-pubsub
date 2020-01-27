@@ -3,7 +3,7 @@ use crate::error;
 use crate::subscription::*;
 use crate::EncodedMessage;
 use bytes::buf::BufExt as _;
-use hyper::Method;
+use hyper::{Method, StatusCode};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::de::DeserializeOwned;
@@ -87,8 +87,28 @@ impl Topic {
         *req.uri_mut() = uri;
 
         let response = client.hyper_client().request(req).await?;
-        let body = hyper::body::aggregate(response).await?;
-        serde_json::from_reader(body.reader())?
+        match response.status() {
+            StatusCode::NOT_FOUND => Err(error::Error::PubSub {
+                code: 404,
+                status: "Topic Not Found".to_string(),
+                message: self.name.clone(),
+            }),
+            StatusCode::OK => {
+                let body = hyper::body::aggregate(response).await?;
+                serde_json::from_reader(body.reader()).map_err(|e| e.into())
+            }
+            code => {
+                let body = hyper::body::aggregate(response).await?;
+                let mut buf = String::new();
+                use std::io::Read;
+                body.reader().read_to_string(&mut buf)?;
+                Err(error::Error::PubSub {
+                    code: code.as_u16() as i32,
+                    status: "Error occurred attempting to subscribe".to_string(),
+                    message: buf,
+                })
+            }
+        }
     }
 
     fn new_subscription_name(&self) -> String {

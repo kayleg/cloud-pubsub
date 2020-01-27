@@ -1,11 +1,9 @@
 use cloud_pubsub::error;
 use cloud_pubsub::{Client, EncodedMessage, FromPubSubMessage, Subscription};
-use ctrlc;
-use futures::future::lazy;
 use serde_derive::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::prelude::*;
+use tokio::{signal, task};
 
 #[derive(Deserialize)]
 struct Config {
@@ -26,33 +24,30 @@ impl FromPubSubMessage for UpdatePacket {
 }
 
 fn schedule_pubsub_pull(subscription: Arc<Subscription>) {
-    let sub = Arc::clone(&subscription);
-    let get = subscription
-        .clone()
-        .get_messages::<UpdatePacket>()
-        .map(move |(packets, acks)| {
-            for packet in packets {
-                println!("Received: {:?}", packet);
-            }
+    task::spawn(async move {
+        while subscription.client().is_running() {
+            match subscription.get_messages::<UpdatePacket>().await {
+                Ok((packets, acks)) => {
+                    for packet in packets {
+                        println!("Received: {:?}", packet);
+                    }
 
-            if !acks.is_empty() {
-                tokio::spawn(subscription.acknowledge_messages(acks));
+                    if !acks.is_empty() {
+                        let s = Arc::clone(&subscription);
+                        task::spawn(async move {
+                            s.acknowledge_messages(acks).await;
+                        });
+                    }
+                }
+                Err(e) => eprintln!("Failed to pull PubSub messages: {}", e),
             }
-        })
-        .map_err(|e| println!("Error Checking PubSub: {}", e))
-        .and_then(|_| {
-            if sub.client().is_running() {
-                schedule_pubsub_pull(sub);
-            } else {
-                println!("No longer pulling");
-            }
-
-            Ok(())
-        });
-    tokio::spawn(get);
+        }
+        println!("No longer pulling");
+    });
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), error::Error> {
     let parsed_env = envy::from_env::<Config>();
     if let Err(e) = parsed_env {
         eprintln!("ENV is not valid: {}", e);
@@ -62,47 +57,34 @@ fn main() {
 
     let pubsub = match Client::new(config.google_application_credentials) {
         Err(e) => panic!("Failed to initialize pubsub: {}", e),
-        Ok(p) => Arc::new(p),
+        Ok(mut client) => {
+            if let Err(e) = client.refresh_token() {
+                eprintln!("Failed to get token: {}", e);
+            } else {
+                println!("Got fresh token");
+            }
+            Arc::new(client)
+        }
     };
 
+    pubsub.spawn_token_renew(Duration::from_secs(15 * 60));
+
     let topic = Arc::new(pubsub.topic(config.topic));
-
-    tokio::run(lazy(move || {
-        pubsub.spawn_token_renew(Duration::from_secs(2));
-
-        topic
-            .subscribe()
-            .map(move |subscription| {
-                println!("Subscribed to topic with: {}", subscription.name);
-                let sub = Arc::new(subscription);
-
-                schedule_pubsub_pull(Arc::clone(&sub));
-
-                ctrlc::set_once_handler(move || {
-                    println!("Cleaning up");
-                    pubsub.stop();
-                    let client = Arc::clone(&pubsub);
-                    println!("Waiting for current Pull to finish....");
-                    while Arc::strong_count(&sub) > 1 {}
-                    println!("Deleting subscription");
-                    if let Ok(s) = Arc::try_unwrap(sub) {
-                        let destroy = s
-                            .destroy()
-                            .map(|_r| println!("Successfully deleted subscription"))
-                            .map_err(|e| eprintln!("Failed deleting subscription: {}", e))
-                            .then(move |_| {
-                                if let Ok(c) = Arc::try_unwrap(client) {
-                                    drop(c);
-                                }
-                                Ok(())
-                            });
-                        tokio::run(destroy);
-                    } else {
-                        eprintln!("Subscription was still ownded");
-                    }
-                })
-                .expect("Error setting Ctrl-C handler");
-            })
-            .map_err(|e| eprintln!("Failed to subscribe: {}", e))
-    }));
+    let subscription = topic.subscribe().await?;
+    println!("Subscribed to topic with: {}", subscription.name);
+    let sub = Arc::new(subscription);
+    schedule_pubsub_pull(Arc::clone(&sub));
+    signal::ctrl_c().await?;
+    println!("Cleaning up");
+    pubsub.stop();
+    println!("Waiting for current Pull to finish....");
+    while Arc::strong_count(&sub) > 1 {}
+    println!("Deleting subscription");
+    if let Ok(s) = Arc::try_unwrap(sub) {
+        s.destroy().await?;
+        println!("Successfully deleted subscription");
+    } else {
+        eprintln!("Subscription was still ownded");
+    }
+    Ok(())
 }

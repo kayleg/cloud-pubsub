@@ -21,6 +21,7 @@ impl FromPubSubMessage for UpdatePacket {
         }
     }
 }
+
 #[tokio::main]
 async fn main() {
     let parsed_env = envy::from_env::<Config>();
