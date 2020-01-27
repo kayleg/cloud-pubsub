@@ -43,6 +43,8 @@ impl fmt::Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 impl From<goauth::error::GOErr> for Error {
     fn from(err: goauth::error::GOErr) -> Error {
         Error::PubSubAuth(err)
