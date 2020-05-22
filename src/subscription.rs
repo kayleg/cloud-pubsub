@@ -3,7 +3,15 @@ use crate::error;
 use crate::message::{FromPubSubMessage, Message};
 use bytes::buf::BufExt as _;
 use hyper::{Method, StatusCode};
+use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};
+use std::env;
+
+lazy_static! {
+    static ref PUBSUB_HOST: String = env::var("PUBSUB_EMULATOR_HOST")
+        .map(|host| format!("http://{}", host))
+        .unwrap_or_else(|_| String::from("https://pubsub.googleapis.com"));
+}
 
 #[derive(Deserialize)]
 struct Response {
@@ -35,7 +43,7 @@ impl Subscription {
             .as_ref()
             .expect("Subscription was not created using a client");
 
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:acknowledge", self.name)
+        let uri: hyper::Uri = format!("{}/v1/{}:acknowledge", *PUBSUB_HOST, self.name)
             .parse()
             .unwrap();
 
@@ -57,7 +65,7 @@ impl Subscription {
             .as_ref()
             .expect("Subscription was not created using a client");
 
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:pull", self.name)
+        let uri: hyper::Uri = format!("{}/v1/{}:pull", *PUBSUB_HOST, self.name)
             .parse()
             .unwrap();
 
@@ -104,7 +112,7 @@ impl Subscription {
             .client
             .expect("Subscription was not created using a client");
 
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}", self.name)
+        let uri: hyper::Uri = format!("{}/v1/{}", *PUBSUB_HOST, self.name)
             .parse()
             .unwrap();
 
