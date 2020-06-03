@@ -102,11 +102,11 @@ impl Client {
             let mut int = time::interval(interval);
             loop {
                 if c.is_running() {
+                    int.tick().await;
                     println!("Renewing pubsub token");
                     if let Err(e) = client.refresh_token() {
                         eprintln!("Failed to update token: {}", e);
                     }
-                    int.tick().await;
                 }
             }
         };
