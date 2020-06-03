@@ -5,6 +5,7 @@ use goauth::auth::JwtClaims;
 use goauth::scopes::Scope;
 use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
+use log::{error, info};
 use smpl_jwt::Jwt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -105,7 +106,7 @@ impl Client {
                     int.tick().await;
                     println!("Renewing pubsub token");
                     if let Err(e) = client.refresh_token() {
-                        eprintln!("Failed to update token: {}", e);
+                        error!("Failed to update token: {}", e);
                     }
                 }
             }

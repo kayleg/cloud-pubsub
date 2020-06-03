@@ -55,6 +55,29 @@ fn main() {
 }
 ```
 
+### Log Config
+
+In order to produce log output, executables have to use a logger implementation compatible with the log facade.
+There are many available implementations to chose from, for example:
+
+[env_logger](https://github.com/sebasmagri/env_logger/) is an excellent way to log in your executables.
+
+```
+[dependencies]
+log = "0.4"
+env_logger = "0.7"
+```
+
+```
+fn main() {
+    env_logger::init();
+
+    info!("starting up");
+
+    // ...
+}
+```
+
 ## Subscribing
 
 ### Connecting to existing subscription
