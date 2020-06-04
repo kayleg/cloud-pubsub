@@ -4,10 +4,18 @@ use crate::subscription::*;
 use crate::EncodedMessage;
 use bytes::buf::BufExt as _;
 use hyper::{Method, StatusCode};
+use lazy_static::lazy_static;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::de::DeserializeOwned;
 use serde_derive::{Deserialize, Serialize};
+use std::env;
+
+lazy_static! {
+    static ref PUBSUB_HOST: String = env::var("PUBSUB_EMULATOR_HOST")
+        .map(|host| format!("http://{}", host))
+        .unwrap_or_else(|_| String::from("https://pubsub.googleapis.com"));
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct Topic {
@@ -38,7 +46,7 @@ impl Topic {
             client: None,
         };
 
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}", new_subscription.name)
+        let uri: hyper::Uri = format!("{}/v1/{}", *PUBSUB_HOST, new_subscription.name)
             .parse()
             .unwrap();
 
@@ -54,7 +62,7 @@ impl Topic {
         &self,
         data: T,
     ) -> Result<PublishMessageResponse, error::Error> {
-        let uri: hyper::Uri = format!("https://pubsub.googleapis.com/v1/{}:publish", self.name)
+        let uri: hyper::Uri = format!("{}/v1/{}:publish", *PUBSUB_HOST, self.name)
             .parse()
             .unwrap();
 
