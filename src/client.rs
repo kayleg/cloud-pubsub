@@ -7,6 +7,8 @@ use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
 use log::{error, info};
 use smpl_jwt::Jwt;
+use std::fs;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -17,7 +19,7 @@ type HyperClient = Arc<hyper::Client<HttpsConnector<HttpConnector>, hyper::Body>
 
 pub struct State {
     token: Option<goauth::auth::Token>,
-    credentials_path: String,
+    credentials_string: String,
     project: Option<String>,
     hyper_client: HyperClient,
     running: Arc<AtomicBool>,
@@ -46,10 +48,10 @@ impl Clone for Client {
 }
 
 impl Client {
-    pub fn new(credentials_path: String) -> Result<Self, error::Error> {
+    pub fn new_with_string(credentials_string: String) -> Result<Self, error::Error> {
         let mut client = Client(Arc::new(RwLock::new(State {
             token: None,
-            credentials_path,
+            credentials_string,
             project: None,
             hyper_client: setup_hyper(),
             running: Arc::new(AtomicBool::new(true)),
@@ -59,6 +61,11 @@ impl Client {
             Ok(_) => Ok(client),
             Err(e) => Err(e),
         }
+    }
+
+    pub fn new(credentials_path: String) -> Result<Self, error::Error> {
+        let credentials_string = fs::read_to_string(credentials_path).unwrap();
+        Self::new_with_string(credentials_string)
     }
 
     pub fn subscribe(&self, name: String) -> Subscription {
@@ -127,7 +134,7 @@ impl Client {
 
     fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::error::GOErr> {
         let credentials =
-            goauth::credentials::Credentials::from_file(&self.0.read().unwrap().credentials_path)
+            goauth::credentials::Credentials::from_str(&self.0.read().unwrap().credentials_string)
                 .unwrap();
 
         self.set_project(credentials.project());
