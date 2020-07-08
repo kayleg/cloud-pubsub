@@ -5,7 +5,7 @@ use goauth::auth::JwtClaims;
 use goauth::scopes::Scope;
 use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
-use log::{error, info};
+use log::error;
 use smpl_jwt::Jwt;
 use std::fs;
 use std::str::FromStr;
