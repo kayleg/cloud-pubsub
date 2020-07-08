@@ -48,7 +48,7 @@ impl Clone for Client {
 }
 
 impl Client {
-    pub fn new_with_string(credentials_string: String) -> Result<Self, error::Error> {
+    pub fn from_string(credentials_string: String) -> Result<Self, error::Error> {
         let mut client = Client(Arc::new(RwLock::new(State {
             token: None,
             credentials_string,
@@ -65,7 +65,7 @@ impl Client {
 
     pub fn new(credentials_path: String) -> Result<Self, error::Error> {
         let credentials_string = fs::read_to_string(credentials_path).unwrap();
-        Self::new_with_string(credentials_string)
+        Self::from_string(credentials_string)
     }
 
     pub fn subscribe(&self, name: String) -> Subscription {
