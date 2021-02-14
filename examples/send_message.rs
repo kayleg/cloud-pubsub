@@ -17,7 +17,7 @@ async fn main() {
     }
     let config = parsed_env.unwrap();
 
-    let pubsub = match Client::new(config.google_application_credentials) {
+    let pubsub = match Client::new(config.google_application_credentials).await {
         Err(e) => panic!("Failed to initialize pubsub: {}", e),
         Ok(p) => Arc::new(p),
     };

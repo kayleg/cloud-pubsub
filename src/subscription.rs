@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::error;
 use crate::message::{FromPubSubMessage, Message};
-use bytes::buf::BufExt as _;
+use hyper::body::Buf;
 use hyper::{Method, StatusCode};
 use lazy_static::lazy_static;
 use log::error;

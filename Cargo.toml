@@ -11,17 +11,20 @@ license      =  "MIT"
 readme       =  "README.md"
 
 [dependencies]
-bytes         =  "0.5"
-hyper         =  "0.13"
-hyper-tls     =  "0.4.1"
-tokio         =  { version = "0.2", features=["full"] }
-goauth        =  "0.6"
-smpl_jwt      =  "0.4.0"
+bytes         =  "1"
+hyper         =  "0.14"
+hyper-tls     =  "0.5"
+tokio         =  "1"
+goauth        =  "0.9"
+smpl_jwt      =  "0.6"
 serde         =  "1.0"
 serde_derive  =  "1.0"
 serde_json    =  "1.0"
-base64        =  "0.11"
+base64        =  "0.13"
 lazy_static   =  "1.4.0"
-envy          =  "0.4"
-rand          =  "0.7"
+rand          =  "0.8"
 log           =  "0.4"
+
+[dev-dependencies]
+envy          =  "0.4"
+tokio         =  { version = "1", features = ["rt-multi-thread", "macros", "signal"]}

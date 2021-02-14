@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::error;
 use crate::subscription::*;
 use crate::EncodedMessage;
-use bytes::buf::BufExt as _;
+use hyper::body::Buf;
 use hyper::{Method, StatusCode};
 use lazy_static::lazy_static;
 use rand::distributions::Alphanumeric;
@@ -124,6 +124,7 @@ impl Topic {
         let slug = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
+            .map(char::from)
             .collect::<String>();
 
         format!("projects/{}/subscriptions/RST{}", project, slug)

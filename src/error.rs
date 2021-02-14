@@ -6,7 +6,7 @@ use std::io;
 #[serde(untagged)]
 pub enum Error {
     #[serde(skip_deserializing)]
-    PubSubAuth(goauth::error::GOErr),
+    PubSubAuth(goauth::GoErr),
     #[serde(skip_deserializing)]
     Http(hyper::Error),
     #[serde(skip_deserializing)]
@@ -45,8 +45,8 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-impl From<goauth::error::GOErr> for Error {
-    fn from(err: goauth::error::GOErr) -> Error {
+impl From<goauth::GoErr> for Error {
+    fn from(err: goauth::GoErr) -> Error {
         Error::PubSubAuth(err)
     }
 }
