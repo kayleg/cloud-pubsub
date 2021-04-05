@@ -48,7 +48,7 @@ impl Clone for Client {
 }
 
 impl Client {
-    pub fn from_string(credentials_string: String) -> Result<Self, error::Error> {
+    pub async fn from_string(credentials_string: String) -> Result<Self, error::Error> {
         let mut client = Client(Arc::new(RwLock::new(State {
             token: None,
             credentials_string,
@@ -57,15 +57,15 @@ impl Client {
             running: Arc::new(AtomicBool::new(true)),
         })));
 
-        match client.refresh_token() {
+        match client.refresh_token().await {
             Ok(_) => Ok(client),
             Err(e) => Err(e),
         }
     }
 
-    pub fn new(credentials_path: String) -> Result<Self, error::Error> {
+    pub async fn new(credentials_path: String) -> Result<Self, error::Error> {
         let credentials_string = fs::read_to_string(credentials_path).unwrap();
-        Self::from_string(credentials_string)
+        Self::from_string(credentials_string).await
     }
 
     pub fn subscribe(&self, name: String) -> Subscription {
@@ -112,7 +112,7 @@ impl Client {
                 if c.is_running() {
                     int.tick().await;
                     println!("Renewing pubsub token");
-                    if let Err(e) = client.refresh_token() {
+                    if let Err(e) = client.refresh_token().await {
                         error!("Failed to update token: {}", e);
                     }
                 }
@@ -122,8 +122,8 @@ impl Client {
         task::spawn(renew_token_task);
     }
 
-    pub fn refresh_token(&mut self) -> Result<(), error::Error> {
-        match self.get_token() {
+    pub async fn refresh_token(&mut self) -> Result<(), error::Error> {
+        match self.get_token().await {
             Ok(token) => {
                 self.0.write().unwrap().token = Some(token);
                 Ok(())
@@ -132,7 +132,7 @@ impl Client {
         }
     }
 
-    fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::error::GOErr> {
+    async fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::GoErr> {
         let credentials =
             goauth::credentials::Credentials::from_str(&self.0.read().unwrap().credentials_string)
                 .unwrap();
@@ -147,7 +147,7 @@ impl Client {
             None,
         );
         let jwt = Jwt::new(claims, credentials.rsa_key().unwrap(), None);
-        goauth::get_token_with_creds(&jwt, &credentials)
+        goauth::get_token(&jwt, &credentials).await
     }
 
     pub(crate) fn request<T: Into<hyper::Body>>(
