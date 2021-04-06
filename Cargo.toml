@@ -1,6 +1,6 @@
 [package]
 name         =  "cloud-pubsub"
-version      =  "0.5.0"
+version      =  "0.6.0"
 authors      =  ["Kayle Gishen <k@bkdsw.com>", "tehAnswer <sergiorodriguezgijon@gmail.com>"]
 edition      =  "2018"
 description  =  "Google Cloud PubSub Client"
