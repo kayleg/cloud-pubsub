@@ -27,16 +27,18 @@ fn schedule_pubsub_pull(subscription: Arc<Subscription>) {
     task::spawn(async move {
         while subscription.client().is_running() {
             match subscription.get_messages::<UpdatePacket>().await {
-                Ok((packets, acks)) => {
-                    for packet in packets {
-                        println!("Received: {:?}", packet);
-                    }
-
-                    if !acks.is_empty() {
-                        let s = Arc::clone(&subscription);
-                        task::spawn(async move {
-                            s.acknowledge_messages(acks).await;
-                        });
+                Ok(messages) => {
+                    for (result, ack_id) in messages {
+                        match result {
+                            Ok(message) => {
+                                println!("Received: {:?}", message);
+                                let subscription = Arc::clone(&subscription);
+                                task::spawn(async move {
+                                    subscription.acknowledge_messages(vec![ack_id]).await;
+                                });
+                            }
+                            Err(e) => log::error!("Failed converting to UpdatePacket: {}", e),
+                        }
                     }
                 }
                 Err(e) => eprintln!("Failed to pull PubSub messages: {}", e),

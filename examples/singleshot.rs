@@ -36,19 +36,22 @@ async fn main() {
         Ok(p) => p,
     };
 
-    let order_sub = Arc::new(pubsub.subscribe(config.pubsub_subscription));
-    match order_sub.clone().get_messages::<UpdatePacket>().await {
-        Ok((packets, acks)) => {
-            for packet in packets {
-                println!("Received: {:?}", packet);
-            }
-
-            if !acks.is_empty() {
-                task::spawn(async move { order_sub.acknowledge_messages(acks).await })
-                    .await // This will block until acknowledgement is complete
-                    .expect("Failed to acknoweldge messages");
+    let subscription = Arc::new(pubsub.subscribe(config.pubsub_subscription));
+    match subscription.get_messages::<UpdatePacket>().await {
+        Ok(messages) => {
+            for (result, ack_id) in messages {
+                match result {
+                    Ok(message) => {
+                        println!("Received: {:?}", message);
+                        let subscription = Arc::clone(&subscription);
+                        task::spawn(async move {
+                            subscription.acknowledge_messages(vec![ack_id]).await;
+                        });
+                    }
+                    Err(e) => log::error!("Failed converting to UpdatePacket: {}", e),
+                }
             }
         }
-        Err(e) => println!("Error Checking PubSub: {}", e),
+        Err(e) => eprintln!("Failed to pull PubSub messages: {}", e),
     }
 }
