@@ -46,7 +46,10 @@ async fn main() {
                 println!("Received: {:?}", packet);
             }
 
-            let acks: Vec<String> = packets.into_iter().map(|packet| packet.0).collect();
+            let acks: Vec<String> = packets
+                .into_iter()
+                .map(|packet| packet.1)
+                .collect::<Vec<_>>();
             if !acks.is_empty() {
                 task::spawn(async move { order_sub.acknowledge_messages(acks).await })
                     .await // This will block until acknowledgement is complete

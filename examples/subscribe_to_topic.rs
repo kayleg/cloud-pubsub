@@ -44,7 +44,10 @@ async fn main() {
     }
 
     if !packets.is_empty() {
-        let acks = packets.into_iter().map(|packet| packet.0).collect();
+        let acks = packets
+            .into_iter()
+            .map(|packet| packet.1)
+            .collect::<Vec<_>>();
         sub.acknowledge_messages(acks).await;
     } else {
         println!("Cleaning up");

@@ -6,7 +6,6 @@ use hyper::{Method, StatusCode};
 use lazy_static::lazy_static;
 use log::error;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::env;
 
 lazy_static! {
