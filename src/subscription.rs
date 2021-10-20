@@ -4,7 +4,6 @@ use crate::message::{FromPubSubMessage, Message};
 use hyper::body::Buf;
 use hyper::{Method, StatusCode};
 use lazy_static::lazy_static;
-use log::error;
 use serde_derive::{Deserialize, Serialize};
 use std::env;
 
@@ -54,7 +53,7 @@ impl Subscription {
         *req.uri_mut() = uri.clone();
 
         if let Err(e) = client.hyper_client().request(req).await {
-            error!("Failed ACk: {}", e);
+            log::error!("Failed ACK: {}", e);
         }
     }
 
@@ -99,7 +98,7 @@ impl Subscription {
             .filter_map(|packet| match T::from(packet.message) {
                 Ok(o) => Some(o),
                 Err(e) => {
-                    error!("Failed converting pubsub {}", e,);
+                    log::error!("Failed converting pubsub {}", e);
                     None
                 }
             })
