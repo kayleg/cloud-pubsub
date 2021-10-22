@@ -41,11 +41,15 @@ async fn main() {
 
     let order_sub = Arc::new(pubsub.subscribe(config.pubsub_subscription));
     match order_sub.clone().get_messages::<UpdatePacket>().await {
-        Ok((packets, acks)) => {
-            for packet in packets {
+        Ok(packets) => {
+            for packet in &packets {
                 println!("Received: {:?}", packet);
             }
 
+            let acks: Vec<String> = packets
+                .into_iter()
+                .map(|packet| packet.1)
+                .collect::<Vec<_>>();
             if !acks.is_empty() {
                 task::spawn(async move { order_sub.acknowledge_messages(acks).await })
                     .await // This will block until acknowledgement is complete

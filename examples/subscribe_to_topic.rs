@@ -33,17 +33,21 @@ async fn main() {
     let sub = topic.subscribe().await.expect("Failed to subscribe");
 
     println!("Subscribed to topic with: {}", sub.name);
-    let (packets, acks) = sub
+    let packets = sub
         .clone()
         .get_messages::<UpdatePacket>()
         .await
         .expect("Error Checking PubSub");
 
-    for packet in packets {
+    for packet in &packets {
         println!("Received: {:?}", packet);
     }
 
-    if !acks.is_empty() {
+    if !packets.is_empty() {
+        let acks = packets
+            .into_iter()
+            .map(|packet| packet.1)
+            .collect::<Vec<_>>();
         sub.acknowledge_messages(acks).await;
     } else {
         println!("Cleaning up");

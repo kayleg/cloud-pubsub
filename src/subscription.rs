@@ -59,7 +59,7 @@ impl Subscription {
 
     pub async fn get_messages<T: FromPubSubMessage>(
         &self,
-    ) -> Result<(Vec<T>, Vec<String>), error::Error> {
+    ) -> Result<Vec<(Result<T, error::Error>, String)>, error::Error> {
         let client = self
             .client
             .as_ref()
@@ -75,6 +75,7 @@ impl Subscription {
         *req.uri_mut() = uri.clone();
 
         let response = client.hyper_client().request(req).await?;
+
         if response.status() == StatusCode::NOT_FOUND {
             return Err(error::Error::PubSub {
                 code: 404,
@@ -87,24 +88,13 @@ impl Subscription {
         if let Some(e) = response.error {
             return Err(e);
         }
-        let messages = response.received_messages.unwrap_or_default();
-        let ack_ids: Vec<String> = messages
-            .as_slice()
-            .iter()
-            .map(|packet| packet.ack_id.clone())
-            .collect();
-        let packets = messages
+        let messages = response
+            .received_messages
+            .unwrap_or_default()
             .into_iter()
-            .filter_map(|packet| match T::from(packet.message) {
-                Ok(o) => Some(o),
-                Err(e) => {
-                    log::error!("Failed converting pubsub {}", e);
-                    None
-                }
-            })
+            .map(|m| (T::from(m.message), m.ack_id))
             .collect();
-
-        Ok((packets, ack_ids))
+        Ok(messages)
     }
 
     pub async fn destroy(self) -> Result<(), error::Error> {
