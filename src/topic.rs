@@ -41,7 +41,7 @@ impl Topic {
         let client = self.client.clone();
 
         let new_subscription = Subscription {
-            name: self.new_subscription_name(),
+            name: self.new_subscription_name().await,
             topic: Some(self.name.clone()),
             client: None,
         };
@@ -91,10 +91,10 @@ impl Topic {
             .expect("Topic must be created using a client");
 
         let json = serde_json::to_string(&data).expect("Failed to serialize request body.");
-        let mut req = client.request(method, json);
+        let mut req = client.request(method, json).await;
         *req.uri_mut() = uri;
 
-        let response = client.hyper_client().request(req).await?;
+        let response = client.hyper_client().await.request(req).await?;
         match response.status() {
             StatusCode::NOT_FOUND => Err(error::Error::PubSub {
                 code: 404,
@@ -119,8 +119,8 @@ impl Topic {
         }
     }
 
-    fn new_subscription_name(&self) -> String {
-        let project = self.client.clone().unwrap().project();
+    async fn new_subscription_name(&self) -> String {
+        let project = self.client.clone().unwrap().project().await;
         let slug = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)

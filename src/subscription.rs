@@ -49,10 +49,10 @@ impl Subscription {
 
         let json = serde_json::to_string(&AckRequest { ack_ids: ids }).unwrap();
 
-        let mut req = client.request(Method::POST, json);
+        let mut req = client.request(Method::POST, json).await;
         *req.uri_mut() = uri.clone();
 
-        if let Err(e) = client.hyper_client().request(req).await {
+        if let Err(e) = client.hyper_client().await.request(req).await {
             log::error!("Failed ACK: {}", e);
         }
     }
@@ -71,10 +71,10 @@ impl Subscription {
 
         let json = r#"{"maxMessages": 100}"#;
 
-        let mut req = client.request(Method::POST, json);
+        let mut req = client.request(Method::POST, json).await;
         *req.uri_mut() = uri.clone();
 
-        let response = client.hyper_client().request(req).await?;
+        let response = client.hyper_client().await.request(req).await?;
 
         if response.status() == StatusCode::NOT_FOUND {
             return Err(error::Error::PubSub {
@@ -106,10 +106,10 @@ impl Subscription {
             .parse()
             .unwrap();
 
-        let mut req = client.request(Method::DELETE, "");
+        let mut req = client.request(Method::DELETE, "").await;
         *req.uri_mut() = uri.clone();
 
-        if let Err(e) = client.hyper_client().request(req).await {
+        if let Err(e) = client.hyper_client().await.request(req).await {
             Err(e.into())
         } else {
             Ok(())

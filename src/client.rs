@@ -9,8 +9,9 @@ use smpl_jwt::Jwt;
 use std::fs;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::task;
 use tokio::time;
 
@@ -67,39 +68,35 @@ impl Client {
         Self::from_string(credentials_string).await
     }
 
-    pub fn subscribe(&self, name: String) -> Subscription {
+    pub async fn subscribe(&self, name: String) -> Subscription {
         Subscription {
             client: Some(self.clone()),
-            name: format!("projects/{}/subscriptions/{}", self.project(), name),
+            name: format!("projects/{}/subscriptions/{}", self.project().await, name),
             topic: None,
         }
     }
 
-    pub fn set_project(&mut self, project: String) {
-        self.0.write().unwrap().project = Some(project);
+    pub async fn set_project(&mut self, project: String) {
+        self.0.write().await.project = Some(project);
     }
 
-    pub fn project(&self) -> String {
-        self.0.read().unwrap().project().to_string()
+    pub async fn project(&self) -> String {
+        self.0.read().await.project().to_string()
     }
 
-    pub fn topic(&self, name: String) -> Topic {
+    pub async fn topic(&self, name: String) -> Topic {
         Topic {
             client: Some(Client(self.0.clone())),
-            name: format!("projects/{}/topics/{}", self.project(), name),
+            name: format!("projects/{}/topics/{}", self.project().await, name),
         }
     }
 
-    pub fn is_running(&self) -> bool {
-        self.0.read().unwrap().running.load(Ordering::SeqCst)
+    pub async fn is_running(&self) -> bool {
+        self.0.read().await.running.load(Ordering::SeqCst)
     }
 
-    pub fn stop(&self) {
-        self.0
-            .write()
-            .unwrap()
-            .running
-            .store(false, Ordering::SeqCst)
+    pub async fn stop(&self) {
+        self.0.write().await.running.store(false, Ordering::SeqCst)
     }
 
     pub fn spawn_token_renew(&self, interval: Duration) {
@@ -108,7 +105,7 @@ impl Client {
         let renew_token_task = async move {
             let mut int = time::interval(interval);
             loop {
-                if c.is_running() {
+                if c.is_running().await {
                     int.tick().await;
                     log::debug!("Renewing pubsub token");
                     if let Err(e) = client.refresh_token().await {
@@ -124,7 +121,7 @@ impl Client {
     pub async fn refresh_token(&mut self) -> Result<(), error::Error> {
         match self.get_token().await {
             Ok(token) => {
-                self.0.write().unwrap().token = Some(token);
+                self.0.write().await.token = Some(token);
                 Ok(())
             }
             Err(e) => Err(error::Error::from(e)),
@@ -133,10 +130,10 @@ impl Client {
 
     async fn get_token(&mut self) -> Result<goauth::auth::Token, goauth::GoErr> {
         let credentials =
-            goauth::credentials::Credentials::from_str(&self.0.read().unwrap().credentials_string)
+            goauth::credentials::Credentials::from_str(&self.0.read().await.credentials_string)
                 .unwrap();
 
-        self.set_project(credentials.project());
+        self.set_project(credentials.project()).await;
 
         let claims = JwtClaims::new(
             credentials.iss(),
@@ -149,7 +146,7 @@ impl Client {
         goauth::get_token(&jwt, &credentials).await
     }
 
-    pub(crate) fn request<T: Into<hyper::Body>>(
+    pub(crate) async fn request<T: Into<hyper::Body>>(
         &self,
         method: hyper::Method,
         data: T,
@@ -163,7 +160,7 @@ impl Client {
             hyper::header::CONTENT_TYPE,
             hyper::header::HeaderValue::from_static("application/json"),
         );
-        let readable = self.0.read().unwrap();
+        let readable = self.0.read().await;
         req.headers_mut().insert(
             hyper::header::AUTHORIZATION,
             hyper::header::HeaderValue::from_str(&format!(
@@ -176,8 +173,8 @@ impl Client {
         req
     }
 
-    pub fn hyper_client(&self) -> HyperClient {
-        self.0.read().unwrap().hyper_client.clone()
+    pub async fn hyper_client(&self) -> HyperClient {
+        self.0.read().await.hyper_client.clone()
     }
 }
 

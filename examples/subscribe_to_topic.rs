@@ -28,7 +28,7 @@ async fn main() {
         .await
         .expect("Failed to initialize pubsub");
 
-    let topic = pubsub.topic(config.topic);
+    let topic = pubsub.topic(config.topic).await;
 
     let sub = topic.subscribe().await.expect("Failed to subscribe");
 

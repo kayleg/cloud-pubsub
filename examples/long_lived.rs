@@ -25,7 +25,7 @@ impl FromPubSubMessage for UpdatePacket {
 
 fn schedule_pubsub_pull(subscription: Arc<Subscription>) {
     task::spawn(async move {
-        while subscription.client().is_running() {
+        while subscription.client().is_running().await {
             match subscription.get_messages::<UpdatePacket>().await {
                 Ok(messages) => {
                     for (result, ack_id) in messages {
@@ -71,14 +71,14 @@ async fn main() -> Result<(), error::Error> {
 
     pubsub.spawn_token_renew(Duration::from_secs(15 * 60));
 
-    let topic = Arc::new(pubsub.topic(config.topic));
+    let topic = Arc::new(pubsub.topic(config.topic).await);
     let subscription = topic.subscribe().await?;
     println!("Subscribed to topic with: {}", subscription.name);
     let sub = Arc::new(subscription);
     schedule_pubsub_pull(Arc::clone(&sub));
     signal::ctrl_c().await?;
     println!("Cleaning up");
-    pubsub.stop();
+    pubsub.stop().await;
     println!("Waiting for current Pull to finish....");
     while Arc::strong_count(&sub) > 1 {}
     println!("Deleting subscription");

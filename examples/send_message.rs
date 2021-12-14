@@ -22,11 +22,11 @@ async fn main() {
         Ok(p) => Arc::new(p),
     };
 
-    let topic = Arc::new(pubsub.topic(config.topic.clone()));
+    let topic = Arc::new(pubsub.topic(config.topic.clone()).await);
     match topic.clone().publish("🔥").await {
         Ok(response) => {
             println!("{:?}", response);
-            pubsub.stop();
+            pubsub.stop().await;
             std::process::exit(0);
         }
         Err(e) => eprintln!("Failed sending message {}", e),
