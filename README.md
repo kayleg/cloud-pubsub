@@ -17,7 +17,7 @@ The JWT token has a short life time and needs to be renewed periodically for lon
 
 There is a provided helper which will renew the token every `15 mins`:
 
-```
+```rs
 let pubsub = match BaseClient::create(config.google_application_credentials) {
     Err(e) => panic!("Failed to initialize pubsub: {}", e),
         Ok(p) => p,
@@ -32,7 +32,7 @@ tokio::run(lazy(move || {
 
 [Envy](https://github.com/softprops/envy) is an excellent way to load your config.
 
-```
+```rs
 #[derive(Deserialize)]
 struct Config {
     pubsub_subscription: String,
@@ -62,13 +62,13 @@ There are many available implementations to chose from, for example:
 
 [env_logger](https://github.com/sebasmagri/env_logger/) is an excellent way to log in your executables.
 
-```
+```toml
 [dependencies]
 log = "0.4"
 env_logger = "0.7"
 ```
 
-```
+```rs
 fn main() {
     env_logger::init();
 
@@ -82,7 +82,7 @@ fn main() {
 
 ### Connecting to existing subscription
 
-```
+```rs
 let sub = my_client.subscribe("subscription-name")
 ```
 
