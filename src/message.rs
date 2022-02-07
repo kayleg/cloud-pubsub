@@ -6,7 +6,8 @@ use std::collections::HashMap;
 #[derive(Deserialize, Clone, Serialize)]
 pub struct EncodedMessage {
     data: String,
-    attributes: HashMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attributes: Option<HashMap<String, String>>,
 }
 
 pub trait FromPubSubMessage
@@ -24,10 +25,7 @@ impl EncodedMessage {
     pub fn new<T: serde::Serialize>(data: &T, attributes: Option<HashMap<String, String>>) -> Self {
         let json = serde_json::to_string(data).unwrap();
         let data = base64::encode(&json);
-        EncodedMessage {
-            data,
-            attributes: attributes.unwrap_or_default(),
-        }
+        EncodedMessage { data, attributes }
     }
 }
 
