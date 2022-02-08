@@ -62,13 +62,19 @@ impl Topic {
         &self,
         data: T,
     ) -> Result<PublishMessageResponse, error::Error> {
+        self.publish_message(EncodedMessage::new(&data, None)).await
+    }
+
+    pub async fn publish_message(
+        &self,
+        message: EncodedMessage,
+    ) -> Result<PublishMessageResponse, error::Error> {
         let uri: hyper::Uri = format!("{}/v1/{}:publish", *PUBSUB_HOST, self.name)
             .parse()
             .unwrap();
 
-        let new_message = EncodedMessage::new(&data);
         let payload = PublishMessageRequest {
-            messages: vec![new_message],
+            messages: vec![message],
         };
 
         self.perform_request::<PublishMessageRequest, PublishMessageResponse>(
