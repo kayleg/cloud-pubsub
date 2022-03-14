@@ -22,6 +22,10 @@ impl EncodedMessage {
         base64::decode(&self.data)
     }
 
+    pub fn attributes(&self) -> &Option<HashMap<String, String>> {
+        &self.attributes
+    }
+
     pub fn new<T: serde::Serialize>(data: &T, attributes: Option<HashMap<String, String>>) -> Self {
         let json = serde_json::to_string(data).unwrap();
         let data = base64::encode(&json);
