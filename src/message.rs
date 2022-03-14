@@ -22,8 +22,8 @@ impl EncodedMessage {
         base64::decode(&self.data)
     }
 
-    pub fn attributes(&self) -> &Option<HashMap<String, String>> {
-        &self.attributes
+    pub fn attributes(&self) -> Option<&HashMap<String, String>> {
+        self.attributes.as_ref()
     }
 
     pub fn new<T: serde::Serialize>(data: &T, attributes: Option<HashMap<String, String>>) -> Self {
