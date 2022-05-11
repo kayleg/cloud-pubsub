@@ -40,7 +40,7 @@ async fn main() {
     };
 
     let order_sub = Arc::new(pubsub.subscribe(config.pubsub_subscription));
-    match order_sub.clone().get_messages::<UpdatePacket>().await {
+    match order_sub.clone().get_messages::<UpdatePacket>(100).await {
         Ok(packets) => {
             for packet in &packets {
                 println!("Received: {:?}", packet);

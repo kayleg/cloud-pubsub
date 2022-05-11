@@ -37,7 +37,7 @@ async fn main() {
     };
 
     let subscription = Arc::new(pubsub.subscribe(config.pubsub_subscription));
-    match subscription.get_messages::<UpdatePacket>().await {
+    match subscription.get_messages::<UpdatePacket>(100).await {
         Ok(messages) => {
             for (result, ack_id) in messages {
                 match result {
