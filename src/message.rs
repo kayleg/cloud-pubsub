@@ -5,9 +5,9 @@ use std::collections::HashMap;
 
 #[derive(Deserialize, Clone, Serialize)]
 pub struct EncodedMessage {
-    data: String,
+    pub data: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    attributes: Option<HashMap<String, String>>,
+    pub attributes: Option<HashMap<String, String>>,
 }
 
 pub trait FromPubSubMessage
