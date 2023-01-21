@@ -28,7 +28,14 @@ impl EncodedMessage {
 
     pub fn new<T: serde::Serialize>(data: &T, attributes: Option<HashMap<String, String>>) -> Self {
         let json = serde_json::to_string(data).unwrap();
-        let data = base64::encode(&json);
+        Self::new_binary(&json, attributes)
+    }
+
+    pub fn new_binary<T: AsRef<[u8]>>(
+        incoming: &T,
+        attributes: Option<HashMap<String, String>>,
+    ) -> Self {
+        let data = base64::encode(&incoming);
         EncodedMessage { data, attributes }
     }
 }
