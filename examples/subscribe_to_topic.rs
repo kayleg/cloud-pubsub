@@ -35,7 +35,7 @@ async fn main() {
     println!("Subscribed to topic with: {}", sub.name);
     let packets = sub
         .clone()
-        .get_messages::<UpdatePacket>()
+        .get_messages::<UpdatePacket>(100)
         .await
         .expect("Error Checking PubSub");
 

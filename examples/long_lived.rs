@@ -26,7 +26,7 @@ impl FromPubSubMessage for UpdatePacket {
 fn schedule_pubsub_pull(subscription: Arc<Subscription>) {
     task::spawn(async move {
         while subscription.client().is_running() {
-            match subscription.get_messages::<UpdatePacket>().await {
+            match subscription.get_messages::<UpdatePacket>(100).await {
                 Ok(messages) => {
                     for (result, ack_id) in messages {
                         match result {

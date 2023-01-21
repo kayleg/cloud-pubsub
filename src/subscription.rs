@@ -59,6 +59,7 @@ impl Subscription {
 
     pub async fn get_messages<T: FromPubSubMessage>(
         &self,
+        max_messages: i32,
     ) -> Result<Vec<(Result<T, error::Error>, String)>, error::Error> {
         let client = self
             .client
@@ -69,7 +70,7 @@ impl Subscription {
             .parse()
             .unwrap();
 
-        let json = r#"{"maxMessages": 100}"#;
+        let json = format!("{{\"maxMessages\": {}}}", max_messages);
 
         let mut req = client.request(Method::POST, json);
         *req.uri_mut() = uri.clone();
