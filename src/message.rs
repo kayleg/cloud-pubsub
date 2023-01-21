@@ -1,5 +1,5 @@
 use crate::error;
-use base64;
+use base64::{self, Engine};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ where
 
 impl EncodedMessage {
     pub fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
-        base64::decode(&self.data)
+        base64::engine::general_purpose::STANDARD.decode(&self.data)
     }
 
     pub fn attributes(&self) -> Option<&HashMap<String, String>> {
@@ -31,11 +31,11 @@ impl EncodedMessage {
         Self::new_binary(&json, attributes)
     }
 
-    pub fn new_binary<T: AsRef<[u8]>>(
+    pub fn new_binary<T: AsRef<[u8]> + std::marker::Sync>(
         incoming: &T,
         attributes: Option<HashMap<String, String>>,
     ) -> Self {
-        let data = base64::encode(&incoming);
+        let data = base64::engine::general_purpose::STANDARD.encode(&incoming);
         EncodedMessage { data, attributes }
     }
 }
